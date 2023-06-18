@@ -1,0 +1,3 @@
+[submodule "WebGLM"]
+	path = WebGLM
+	url = https://github.com/THUDM/WebGLM.git
