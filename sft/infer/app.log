@@ -1,0 +1,10 @@
+nohup: ignoring input
+Loading model...
+Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:09<00:27,  9.26s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:18<00:18,  9.00s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:25<00:08,  8.46s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:29<00:00,  6.64s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:29<00:00,  7.44s/it]
+/opt/conda/lib/python3.8/site-packages/gradio/inputs.py:27: UserWarning: Usage of gradio.inputs is deprecated, and will not be supported in the future, please import your component from gradio.components
+  warnings.warn(
+/opt/conda/lib/python3.8/site-packages/gradio/deprecation.py:40: UserWarning: `optional` parameter is deprecated, and it has no effect
+  warnings.warn(value)
+/opt/conda/lib/python3.8/site-packages/gradio/deprecation.py:40: UserWarning: `numeric` parameter is deprecated, and it has no effect
+  warnings.warn(value)
+Load model successfully
