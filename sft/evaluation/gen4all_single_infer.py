@@ -27,6 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+BEAM_SEARCH = False 
 
 
 def model_infer_single(model, tokenizer, args, prompt_text):
@@ -34,16 +35,29 @@ def model_infer_single(model, tokenizer, args, prompt_text):
     encoded_prompt = tokenizer.encode(
         prompt_text, add_special_tokens=False, return_tensors="pt")
     encoded_prompt = encoded_prompt.to(args.device)
-    output_sequences = model.generate(
-        input_ids=encoded_prompt,
-        max_new_tokens=1024,  num_return_sequences=1,
-        eos_token_id=tokenizer.eos_token_id,
-        num_beams=2,
-        top_p=0.95,
-        top_k=30,
-        repetition_penalty=1.2,
-        do_sample=False,
-        temperature=0.01)
+    if BEAM_SEARCH:
+        output_sequences = model.generate(
+            input_ids=encoded_prompt,
+            max_new_tokens=1024,  num_return_sequences=1,
+            eos_token_id=tokenizer.eos_token_id,
+            num_beams=2,
+            top_p=0.95,
+            top_k=30,
+            repetition_penalty=1.2,
+            do_sample=False,
+            temperature=0.01)
+    else:
+        # https://github.com/lm-sys/FastChat/blob/main/fastchat/serve/inference.py
+        output_sequences = model.generate(
+            input_ids=encoded_prompt,
+            max_new_tokens=1024,  num_return_sequences=1,
+            eos_token_id=tokenizer.eos_token_id,
+            top_p=1.0,
+            top_k=0,
+            repetition_penalty=1.0,
+            do_sample=True,
+            temperature=1.0)
+        
 
 
     # Remove the batch dimension when returning multiple sequences

@@ -42,9 +42,9 @@ def generate_prompt(input_text):
 
 def evaluate(
     input,
-    temperature=0.1,
+    temperature=0.01,
     top_p=0.75,
-    top_k=40,
+    top_k=30,
     num_beams=2,
     max_new_tokens=128,
     min_new_tokens=1,
