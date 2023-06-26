@@ -38,11 +38,11 @@ def model_infer_single(model, tokenizer, args, prompt_text):
         input_ids=encoded_prompt,
         max_new_tokens=1024,  num_return_sequences=1,
         eos_token_id=tokenizer.eos_token_id,
-        num_beams=2,
+        num_beams=1,
         top_p=0.95,
         top_k=30,
         repetition_penalty=1.2,
-        do_sample=False,
+        do_sample=True,
         temperature=0.01)
 
 
