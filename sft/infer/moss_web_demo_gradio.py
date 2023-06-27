@@ -107,6 +107,87 @@ parser.add_argument(
 args = parser.parse_args()
 
 
+import os
+import sys
+import re
+import gradio as gr
+import torch
+import transformers
+import traceback
+
+from transformers import GenerationConfig, AutoTokenizer, AutoModelForCausalLM
+from queue import Queue
+from threading import Thread
+
+
+DEFAULT_PAD_TOKEN = "[PAD]"
+DEFAULT_EOS_TOKEN = "</s>"
+DEFAULT_BOS_TOKEN = "</s>"
+DEFAULT_UNK_TOKEN = "</s>"
+
+class Stream(transformers.StoppingCriteria):
+    def __init__(self, callback_func=None):
+        self.callback_func = callback_func
+
+    def __call__(self, input_ids, scores) -> bool:
+        if self.callback_func is not None:
+            self.callback_func(input_ids[0])
+        return False
+
+
+class Iteratorize:
+
+    """
+    Transforms a function that takes a callback
+    into a lazy iterator (generator).
+    """
+
+    def __init__(self, func, kwargs={}, callback=None):
+        self.mfunc = func
+        self.c_callback = callback
+        self.q = Queue()
+        self.sentinel = object()
+        self.kwargs = kwargs
+        self.stop_now = False
+
+        def _callback(val):
+            if self.stop_now:
+                raise ValueError
+            self.q.put(val)
+
+        def gentask():
+            try:
+                ret = self.mfunc(callback=_callback, **self.kwargs)
+            except ValueError:
+                pass
+            except:
+                traceback.print_exc()
+                pass
+
+            self.q.put(self.sentinel)
+            if self.c_callback:
+                self.c_callback(ret)
+
+        self.thread = Thread(target=gentask)
+        self.thread.start()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        obj = self.q.get(True, None)
+        if obj is self.sentinel:
+            raise StopIteration
+        else:
+            return obj
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stop_now = True
+
+
 
 
 def evaluate(
@@ -117,6 +198,7 @@ def evaluate(
     num_beams=1,
     max_new_tokens=2048,
     min_new_tokens=1,
+    stream_output=True,
     **kwargs,
 ):
     prompt = input
@@ -131,6 +213,49 @@ def evaluate(
         min_new_tokens=min_new_tokens,  # min_length=min_new_tokens+input_sequence
         **kwargs,
     )
+
+
+    generate_params = {
+            "input_ids": input_ids,
+            "generation_config": generation_config,
+            "return_dict_in_generate": True,
+            "output_scores": True,
+            "max_new_tokens": max_new_tokens,
+        }
+
+    if stream_output:
+        # Stream the reply 1 token at a time.
+        # This is based on the trick of using 'stopping_criteria' to create an iterator,
+        # from https://github.com/oobabooga/text-generation-webui/blob/ad37f396fc8bcbab90e11ecf17c56c97bfbd4a9c/modules/text_generation.py#L216-L243.
+
+        def generate_with_callback(callback=None, **kwargs):
+            kwargs.setdefault(
+                "stopping_criteria", transformers.StoppingCriteriaList()
+            )
+            kwargs["stopping_criteria"].append(Stream(callback_func=callback))
+            with torch.no_grad():
+                model.generate(**kwargs)
+
+        def generate_with_streaming(**kwargs):
+            return Iteratorize(generate_with_callback, kwargs, callback=None)
+
+        with generate_with_streaming(**generate_params) as generator:
+            for output in generator:
+                # new_tokens = len(output) - len(input_ids[0])
+                output = (
+                    tokenizer.decode(output, skip_special_tokens=True)
+                    .split("Assistant:")[-1]
+                    .strip()
+                )
+                if len(output) == 0:
+                    yield ""
+
+                elif output[-1] in [tokenizer.eos_token_id]:
+                    break
+                else:
+                    yield output
+        return  # early return for stream_output
+
     with torch.no_grad():
         generation_output = model.generate(
             input_ids=input_ids,
@@ -143,10 +268,10 @@ def evaluate(
         output = generation_output.sequences[0]
         output = (
             tokenizer.decode(output, skip_special_tokens=True)
-            .split("Assistant:")[-1]
             .strip()
         )
-        return output
+        yield output
+
 
 
 load_type = torch.float16  # Sometimes may need torch.float32
@@ -231,9 +356,9 @@ def predict(input, chatbot, max_length, top_p, temperature, history):
 
 
     prompt += 'Human: \n' + query + '\n\nAssistant:\n'
-    # print(f"prompt is {prompt} ")
+    print(f"prompt is {prompt} ")
 
-    response = evaluate(
+    for response in  evaluate(
             prompt,
             num_return_sequences=1,
             eos_token_id=tokenizer.eos_token_id,
@@ -241,20 +366,15 @@ def predict(input, chatbot, max_length, top_p, temperature, history):
             top_k=0,
             repetition_penalty=1.0,
             do_sample=True,
-            temperature=1.0)
-    
-
-    # print(f"response is {response} ")
-
-    logger.info(f"input: {prompt} \t output: {response} ")
-
-            
-    chatbot[-1] = (query, parse_text(response.replace("Human: \n", "")))
+            temperature=1.0):
+        
+        chatbot[-1] = (query, parse_text(response.replace("Human: \n", "")))
+        # history = history + [(query, response)]
+        yield chatbot, history
     history = history + [(query, response)]
-    # print(f"chatbot is {chatbot}")
-    # print(f"history is {history}")
+    logger.info(f"input: {prompt} \t output: {response} ")
+    yield chatbot, history
 
-    return chatbot, history
 
 
 def reset_user_input():
