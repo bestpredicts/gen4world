@@ -365,7 +365,7 @@ def predict(input, chatbot, max_length, top_p, temperature, history):
         chatbot[-1] = (query, parse_text(response.replace("Human: \n", "")))
         # history = history + [(query, response)]
         yield chatbot, history
-    history = history + [(query, response)]
+    history = history + [(query,  parse_text(response.replace("Human: \n", "")))]
     logger.info(f"input: {prompt} \t output: {response} ")
     yield chatbot, history
 
