@@ -189,7 +189,6 @@ class Iteratorize:
 
 
 
-
 def evaluate(
     input,
     temperature=0.5,
@@ -243,15 +242,11 @@ def evaluate(
             for output in generator:
                 # new_tokens = len(output) - len(input_ids[0])
                 output = (
-                    tokenizer.decode(output, skip_special_tokens=True)
+                    tokenizer.decode(output)
                     .split("Assistant:")[-1]
-                    .strip()
                 )
                 if len(output) == 0:
                     yield ""
-
-                elif output[-1] in [tokenizer.eos_token_id]:
-                    break
                 else:
                     yield output
         return  # early return for stream_output
@@ -267,11 +262,10 @@ def evaluate(
         )
         output = generation_output.sequences[0]
         output = (
-            tokenizer.decode(output, skip_special_tokens=True)
+            tokenizer.decode(output)
             .strip()
         )
         yield output
-
 
 
 load_type = torch.float16  # Sometimes may need torch.float32
