@@ -663,6 +663,15 @@ def main():
         data_tokenized=False,
     )
 
+    eval_dataset = gen4all_dataset.PreferenceDataset(
+        json_path=args.validation_file,
+        tokenizer=tokenizer,
+        bos_token_id=None,
+        eos_token_id=tokenizer.eos_token_id,
+        max_length=args.max_length,
+        data_tokenized=False,
+    )
+
     # eval_dataset = None
 
     from torch.utils.data import random_split
@@ -674,7 +683,7 @@ def main():
     total_size = len(train_dataset)
     dev_size = 300 # 剩下的作为开发集
     train_size = total_size - dev_size  # 使用80%的数据作为训练集
-    eval_dataset= None 
+    # eval_dataset= None 
 
 
     # Log a few random samples from the training set:
@@ -1005,6 +1014,7 @@ def main():
 
             losses = torch.cat(losses)
             eval_loss = torch.mean(losses)
+            acces = torch.cat(acces)
             eval_acc =  torch.mean(acces)
 
             if accelerator.is_main_process and args.with_tracking:
