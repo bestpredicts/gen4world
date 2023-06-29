@@ -66,18 +66,43 @@ DEFAULT_UNK_TOKEN = "</s>"
 
 
 class PreferenceCollator:
-    tokenizer: PreTrainedTokenizerBase
+    def __init__(self, tokenizer: PreTrainedTokenizerBase):
+        self.tokenizer = tokenizer
 
     def __call__(self, samples):
         input_ids = [sample['better_input_ids'] for sample in samples] + [
             sample['worse_input_ids'] for sample in samples
         ]  # size = (2 * B, L)
-        attention_mask = [
-            input_id.new_ones(input_id.size(), dtype=torch.bool) for input_id in input_ids
-        ]  # size = (2 * B, L)
+        attention_mask = [[1] * len(sample)
+                                    for sample in input_ids]
+        
+        # size = (2 * B, L)
 
-        input_ids = right_padding(input_ids, padding_value=self.tokenizer.pad_token_id)  # size = (2 * B, L)
-        attention_mask = right_padding(attention_mask, padding_value=0)  # size = (2 * B, L)
+
+
+
+        batch_max = max([len(ids) for ids in input_ids])
+
+        # add padding
+        # if self.tokenizer.padding_side == "right":
+        input_ids = [
+            s + (batch_max - len(s)) * [self.tokenizer.pad_token_id]
+            for s in input_ids]
+        
+        attention_mask = [
+            s + (batch_max - len(s)) * [0] for s in attention_mask
+        ]
+
+
+        # convert to tensors
+        input_ids = torch.tensor(
+            np.array(input_ids), dtype=torch.long
+        )
+        attention_mask= torch.tensor(
+            np.array(attention_mask), dtype=torch.long
+        )
+
+
 
         (
             better_input_ids,  # size = (B, L)
@@ -87,6 +112,7 @@ class PreferenceCollator:
             better_attention_mask,  # size = (B, L)
             worse_attention_mask,  # size = (B, L)
         ) = attention_mask.chunk(chunks=2, dim=0)
+
 
         return {
             'better_input_ids': better_input_ids,  # size = (B, L)

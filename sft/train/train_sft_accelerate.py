@@ -74,7 +74,7 @@ from accelerate.utils import ProjectConfiguration, set_seed
 from transformers.utils.versions import require_version
 from dataset import gen4all_dataset
 from dataset import gen4all_datacollate
-from gen4all.sft.util.gen4all_util import AverageMeter, get_learning_rate
+from gen4all_util import AverageMeter, get_learning_rate
 
 
 logger = get_logger(__name__)
@@ -342,6 +342,17 @@ def parse_args():
             "If passed, LLM loading time and RAM consumption will be benefited."
         ),
     )
+
+    parser.add_argument(
+        "--not_shuffle_train_dataset",
+        action="store_true",
+        help=(
+            "It is an option to create the model as an empty shell, then only materialize its parameters when the pretrained weights are loaded."
+            "If passed, LLM loading time and RAM consumption will be benefited."
+        ),
+    )
+
+
     parser.add_argument(
         "--lora_config",
         type=str,
@@ -588,9 +599,14 @@ def main():
         tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
     )
 
+    train_shuffle = True
+
+    if args.not_shuffle_train_dataset:
+        train_shuffle = False
+
     train_dataloader = DataLoader(
         train_dataset,
-        shuffle=True,
+        shuffle=train_shuffle,
         collate_fn=collate_fn,
         batch_size=args.per_device_train_batch_size,
     )

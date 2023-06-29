@@ -1,21 +1,21 @@
 #!/bin/bash
 OUTPUT=$1
 if [ "$OUTPUT" == "" ]; then
-    OUTPUT=output_sft_accelerate_baichuan-7B
+    OUTPUT=output_rm_accelerate_baichuan-7B
 fi
 mkdir -p $OUTPUT
 echo "output dir: $OUTPUT"
 export WANDB_PROJECT=$OUTPUT
-PLM=/code/PLM/baichuan-7B
-DATA=/code/project/nlp2agi/data/merge_open_data_0617.jsonl
+PLM=/code/project/nlp2agi/output_sft_accelerate_baichuan-7B
+DATA=/code/project/rm_data/rm_data.jsonl
 
 
 WANDB_PROJECT=$OUTPUT
 GRADIENT_ACCUMULATION_STEPS=8
 
-nohup accelerate  launch  --config_file=config/80g_new/default_config0.yaml  \
+accelerate  launch  --config_file=config/default_config.yaml  \
 --mixed_precision="fp16" --zero_stage=3 --gradient_accumulation_steps=$GRADIENT_ACCUMULATION_STEPS --gradient_clipping=1.0 --offload_param_device="none" --offload_optimizer_device="none" --zero3_save_16bit_model="true" \
-train/train_sft_accelerate.py \
+train/train_rm_accelerate.py \
 --train_file=$DATA \
 --model_name_or_path=$PLM \
 --with_tracking \
@@ -35,5 +35,5 @@ train/train_sft_accelerate.py \
 --checkpoints_total_limit=10 \
 --eval_step=10 \
 --wandb_project=$WANDB_PROJECT \
---gradient_checkpointing_enable >$OUTPUT/train.log 2>&1 &
+--gradient_checkpointing_enable 
 

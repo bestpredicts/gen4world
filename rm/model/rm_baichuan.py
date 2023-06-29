@@ -24,7 +24,7 @@ from model.modeling_baichuan import BaiChuanForCausalLM
 from  model.modeling_baichuan import PreTrainedModel as  BaiChuanPreTrainedModel
 from  model.modeling_baichuan import Model as BaiChuanModel
 from  transformers import  PreTrainedModel
-
+from transformers import AutoTokenizer
 
 
 from transformers.utils.doc import add_start_docstrings_to_model_forward, replace_return_docstrings
@@ -165,3 +165,17 @@ class BaiChuanModelForScore(BaiChuanPreTrainedModel):
             scores=scores,  # size = (B, L, D)
             end_scores=end_scores,  # size = (B, D)
         )
+
+
+if __name__ =="__main__":
+    PLM_PATH = "/code/PLM/baichuan-7B"
+    model  = BaiChuanModelForScore.from_pretrained(PLM_PATH,device_map="auto")
+    tokenizer = AutoTokenizer.from_pretrained(PLM_PATH,trust_remote_code=True)
+    test_prompt = "Human: Hey, are you conscious? Can you talk to me? Assistant: NO!"
+    inputs = tokenizer(test_prompt, return_tensors="pt")
+    for key in inputs:
+        inputs[key] = inputs[key].cuda()
+    outputs = model(**inputs)
+    print(outputs)
+
+

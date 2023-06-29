@@ -30,7 +30,7 @@ import os
 import random
 from itertools import chain
 from pathlib import Path
-from model.model_rm_baichuan import BaiChuanModelForScore,ScoreModelOutput
+from model.rm_baichuan import BaiChuanModelForScore,ScoreModelOutput
 from typing import Any
 import datasets
 import torch
@@ -79,8 +79,8 @@ from accelerate.utils import ProjectConfiguration, set_seed
 from transformers.utils.versions import require_version
 from dataset import gen4all_dataset
 from dataset import gen4all_datacollate
-from gen4all.sft.util.gen4all_util import AverageMeter, get_learning_rate
-
+from util.gen4all_util import AverageMeter, get_learning_rate
+import numpy as np
 
 logger = get_logger(__name__)
 
@@ -120,17 +120,17 @@ def smart_tokenizer_and_embedding_resize(
         output_embeddings[-num_new_tokens:] = output_embeddings_avg
 
 
+    
 
 
-
-def loss(
+def loss_fn(
     args,
     model,
     better_input_ids: torch.LongTensor,  # size = (B, L)
     better_attention_mask: torch.BoolTensor,  # size = (B, L)
     worse_input_ids: torch.LongTensor,  # size = (B, L)
     worse_attention_mask: torch.BoolTensor,  # size = (B, L)
-) -> dict[str, torch.Tensor]:
+) :
     """Loss function for the reward model.
 
     Args:
@@ -145,8 +145,9 @@ def loss(
     assert better_input_ids.size(0) == worse_input_ids.size(0), 'batch size mismatch!'
     batch_size = better_input_ids.size(0)
 
+
     output: ScoreModelOutput = model(
-        torch.cat([better_input_ids, worse_input_ids], dim=0),
+        input_ids = torch.cat([better_input_ids, worse_input_ids], dim=0),
         attention_mask=torch.cat([better_attention_mask, worse_attention_mask], dim=0),
     )
     scores = output.scores  # size = (2 * B, L, 1)
@@ -155,6 +156,8 @@ def loss(
     higher_rewards, lower_rewards = scores.squeeze(dim=-1).chunk(chunks=2, dim=0)
     # size = (B,)
     higher_end_rewards, lower_end_rewards = end_scores.squeeze(dim=-1).chunk(chunks=2, dim=0)
+
+
 
     if args.loss_type == 'token-wise':
         losses = []
@@ -307,6 +310,13 @@ def parse_args():
         default=0,
         help="Number of steps for the warmup in the lr scheduler.",
     )
+    parser.add_argument(
+        "--loss_type",
+        type=str,
+        default="token-wise",
+        help="Number of steps for the warmup in the lr scheduler.",
+    )
+
     parser.add_argument(
         "--output_dir", type=str, default=None, help="Where to store the final model."
     )
@@ -653,16 +663,26 @@ def main():
         data_tokenized=False,
     )
 
-    eval_dataset = None
+    # eval_dataset = None
+
+    from torch.utils.data import random_split
+
+    # 假设 train_dataset 是你的初始训练数据集
+    # train_dataset = ...
+
+    # 确定划分的长度
+    total_size = len(train_dataset)
+    dev_size = 300 # 剩下的作为开发集
+    train_size = total_size - dev_size  # 使用80%的数据作为训练集
+    eval_dataset= None 
+
 
     # Log a few random samples from the training set:
     for index in random.sample(range(len(train_dataset)), 3):
         logger.info(f"Sample {index} of the training set: {train_dataset[index]}.")
 
     # DataLoaders creation:
-    collate_fn = gen4all_datacollate.PreferenceCollator(
-        tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
-    )
+    collate_fn = gen4all_datacollate.PreferenceCollator( tokenizer )
 
     train_dataloader = DataLoader(
         train_dataset,
@@ -849,12 +869,7 @@ def main():
     # update the progress_bar if load from checkpoint
     progress_bar.update(completed_steps)
 
-    # if args.use_lora:
-    #     old_state_dict = model.state_dict
-    #     model.state_dict = (
-    #         lambda self, *_, **__: get_peft_model_state_dict(self, old_state_dict())
-    #     ).__get__(model, type(model))
-    # model.config.use_cache = False
+
 
     if args.use_lora:
         old_state_dict = model.state_dict
@@ -866,6 +881,8 @@ def main():
         model.train()
         if accelerator.is_main_process and args.with_tracking:
             loss_average = AverageMeter()
+            acc_average = AverageMeter()
+
         if args.with_tracking:
             total_loss = 0
         if (
@@ -879,6 +896,9 @@ def main():
             )
         else:
             active_dataloader = train_dataloader
+
+        
+
         for step, batch in enumerate(active_dataloader):
             with accelerator.accumulate(model):
                 # outputs = model(**batch)
@@ -888,13 +908,15 @@ def main():
                 worse_input_ids = batch['worse_input_ids']
                 worse_attention_mask=batch['worse_attention_mask']
 
-                result = loss(args,model,better_input_ids,better_attention_mask,worse_input_ids,worse_attention_mask)
+                result = loss_fn(args,model,better_input_ids,better_attention_mask,worse_input_ids,worse_attention_mask)
 
                 loss = result['loss']
+                train_acc = result['accuracy']
 
                 # We keep track of the loss at each epoch
                 if args.with_tracking:
                     total_loss += loss.detach().float()
+
                 accelerator.backward(loss)
                 optimizer.step()
                 lr_scheduler.step()
@@ -934,6 +956,8 @@ def main():
 
             if accelerator.is_main_process and args.with_tracking:
                 loss_average.update(loss.detach().float().item())
+                acc_average .update(train_acc.detach().float().item())
+
                 learning_rate = get_learning_rate(lr_scheduler, logger, deepspeed=True)
 
             if accelerator.is_main_process and completed_steps % args.eval_step == 0:
@@ -941,6 +965,7 @@ def main():
                     accelerator.log(
                         {
                             "train_loss": loss_average.avg,
+                            "train_acc": acc_average.avg,
                             "learning_rate": learning_rate,
                             "epoch": epoch,
                             "step": completed_steps,
@@ -952,34 +977,40 @@ def main():
         if eval_dataset is not None:
             model.eval()
             losses = []
+            acces = []
             for step, batch in enumerate(eval_dataloader):
                 with torch.no_grad():
-                    outputs = model(**batch)
+                    better_input_ids = batch['better_input_ids']
+                    better_attention_mask = batch['better_attention_mask']
+                    worse_input_ids = batch['worse_input_ids']
+                    worse_attention_mask=batch['worse_attention_mask']
 
-                loss = outputs.loss
+                    result = loss_fn(args,model,better_input_ids,better_attention_mask,worse_input_ids,worse_attention_mask)
+
+                    loss = result['loss']
+                    dev_acc = result['accuracy']
+
                 losses.append(
                     accelerator.gather_for_metrics(
                         loss.repeat(args.per_device_eval_batch_size)
                     )
                 )
 
-            losses = torch.cat(losses)
-            try:
-                eval_loss = torch.mean(losses)
-                perplexity = math.exp(eval_loss)
-            except OverflowError:
-                perplexity = float("inf")
+                acces.append(
+                    accelerator.gather_for_metrics(
+                        dev_acc.repeat(args.per_device_eval_batch_size)
+                    )
+                )
 
-            logger.info(
-                f"epoch {epoch}: perplexity: {perplexity} eval_loss: {eval_loss}"
-            )
+
+            losses = torch.cat(losses)
+            eval_loss = torch.mean(losses)
+            eval_acc =  torch.mean(acces)
 
             if accelerator.is_main_process and args.with_tracking:
                 accelerator.log(
                     {
-                        "perplexity": perplexity,
-                        "eval_loss": eval_loss,
-                        "train_loss": total_loss.item() / len(train_dataloader),
+                        "dev_acc": eval_acc,
                         "epoch": epoch,
                         "step": completed_steps,
                     },
@@ -1052,9 +1083,7 @@ def main():
             tokenizer.save_pretrained(args.output_dir)
             if args.push_to_hub:
                 repo.push_to_hub(commit_message="End of training", auto_lfs_prune=True)
-            if eval_dataset is not None:
-                with open(os.path.join(args.output_dir, "all_results.json"), "w") as f:
-                    json.dump({"perplexity": perplexity}, f)
+
 
 
 if __name__ == "__main__":

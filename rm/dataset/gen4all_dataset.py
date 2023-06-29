@@ -94,26 +94,15 @@ class PreferenceDataset:
         sample_id,  raw_sample= self.all_data[item]
 
 
-        prompt = PROMPT_INPUT.format(input=raw_sample['input'])
+        prompt = PROMPT_INPUT.format(input=raw_sample['prompt'])
 
-        better_answer = raw_sample['answer1']
-        worse_answer = raw_sample['answer2']
-        better = raw_sample['better']
-        if not better:
-            better_answer, worse_answer = worse_answer, better_answer
+        better_answer = raw_sample['chosen']
+        worse_answer = raw_sample['rejected']
 
         better_input_ids = self.tokenizer.encode(prompt + better_answer + self.tokenizer.eos_token, add_special_tokens=False)
         worse_input_ids = self.tokenizer.encode(prompt + worse_answer + self.tokenizer.eos_token, add_special_tokens=False)
-        if (
-            better_input_ids.size() == worse_input_ids.size()
-            and torch.all(torch.eq(better_input_ids, worse_input_ids)).item()
-        ):
-            raise ValueError(
-                'Two responses get the same `input_ids` after tokenization.\n\n'
-                f'Prompt: {prompt}\n\n'
-                f'Better answer: {better_answer}\n\n'
-                f'Worse answer: {worse_answer}',
-            )
+  
+
         return {
             'better_input_ids': better_input_ids,  # size = (L,)
             'worse_input_ids': worse_input_ids,  # size = (L,)
