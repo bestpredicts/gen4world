@@ -70,13 +70,8 @@ class PreferenceCollator:
         self.tokenizer = tokenizer
 
     def __call__(self, samples):
-        input_ids = [sample['better_input_ids'] for sample in samples] + [
-            sample['worse_input_ids'] for sample in samples
-        ]  # size = (2 * B, L)
-        attention_mask = [[1] * len(sample)
-                                    for sample in input_ids]
-        
-        # size = (2 * B, L)
+        input_ids = [sample['better_input_ids'] for sample in samples] + [ sample['worse_input_ids'] for sample in samples ]  # size = (2 * B, L)
+        attention_mask = [[1] * len(sample) for sample in input_ids]# size = (2 * B, L)
 
 
 

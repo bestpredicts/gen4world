@@ -25,11 +25,11 @@ train/train_rm_accelerate.py \
 --output_dir=$OUTPUT \
 --max_length=2048 \
 --num_train_epochs=5 \
---learning_rate=7e-6 \
---per_device_train_batch_size=1 \
---per_device_eval_batch_size=1 \
+--learning_rate=1e-5 \
+--per_device_train_batch_size=2 \
+--per_device_eval_batch_size=2 \
 --gradient_accumulation_steps=$GRADIENT_ACCUMULATION_STEPS \
---checkpointing_steps=1000 \
+--checkpointing_steps=3000 \
 --lr_scheduler_type="cosine" \
 --warmup_ratio=0.01 \
 --weight_decay=0.00001 \
