@@ -256,11 +256,13 @@ def main():
             load_in_8bit=True,  # xxx: int8 load in
             device_map=device_map,  # xxx: int8 requires passing device_map
             torch_dtype=torch_dtype,
+            trust_remote_code=True,
         )
     else:
         model = AutoModelForCausalLM.from_pretrained(
             model_args.model_name_or_path,
             torch_dtype=torch_dtype,
+             trust_remote_code=True,
         )
 
     if model_args.llama:
@@ -272,7 +274,7 @@ def main():
         )
 
     else:
-        tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path)
+        tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path ,trust_remote_code=True,)
 
     def smart_tokenizer_and_embedding_resize(
         special_tokens_dict: Dict,

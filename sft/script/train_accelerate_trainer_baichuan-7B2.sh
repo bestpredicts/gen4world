@@ -1,16 +1,14 @@
 #!/bin/bash
 OUTPUT=$1
 if [ "$OUTPUT" == "" ]; then
-    OUTPUT=output_sft_accelerate_baichuan-7B
+    OUTPUT=output_sft_accelerate_baichuan-7B-0627-shuffle
 fi
 mkdir -p $OUTPUT
 echo "output dir: $OUTPUT"
-export WANDB_PROJECT=$OUTPUT
+export WANDB_PROJECT=output_sft_accelerate_baichuan-7B-0622
 PLM=/code/PLM/baichuan-7B
-DATA=/code/project/nlp2agi/data/merge_open_data_0617.jsonl
+DATA=/code/project/sft_data/sft_data/belle_paper_add_wizard_ocra_belle13w.jsonl
 
-
-WANDB_PROJECT=$OUTPUT
 GRADIENT_ACCUMULATION_STEPS=8
 
 nohup accelerate  launch  --config_file=config/80g_new/default_config1.yaml  \

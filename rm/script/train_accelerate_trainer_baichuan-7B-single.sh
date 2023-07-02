@@ -1,7 +1,7 @@
 #!/bin/bash
 OUTPUT=$1
 if [ "$OUTPUT" == "" ]; then
-    OUTPUT=output_rm_accelerate_baichuan-7B
+    OUTPUT=output_rm_accelerate_baichuan-7B-sequence-wise
 fi
 mkdir -p $OUTPUT
 echo "output dir: $OUTPUT"
@@ -10,7 +10,7 @@ PLM=/code/project/nlp2agi/output_sft_accelerate_baichuan-7B
 DATA=/code/project/rm_data/rm_data.train.jsonl
 EVAL_DATA=/code/project/rm_data/rm_data.test.jsonl
 
-WANDB_PROJECT=$OUTPUT
+WANDB_PROJECT=output_rm_accelerate_baichuan-7B
 GRADIENT_ACCUMULATION_STEPS=8
 
 nohup accelerate  launch  --config_file=config/default_config.yaml  \
@@ -21,6 +21,7 @@ train/train_rm_accelerate.py \
 --model_name_or_path=$PLM \
 --with_tracking \
 --report_to wandb \
+--loss_type='sequence-wise' \
 --seed=1234 \
 --output_dir=$OUTPUT \
 --max_length=2048 \
