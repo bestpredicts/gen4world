@@ -12,8 +12,9 @@ export NCCL_NET_PLUGIN=none
 
 OUTPUT=$1
 if [ "$OUTPUT" == "" ]; then
-    OUTPUT=/data/dengyong/output_sft_accelerate_baichuan-7B-0701
+    OUTPUT=/code2/output_sft_accelerate_baichuan-7B-0701
 fi
+
 mkdir -p $OUTPUT
 echo "output dir: $OUTPUT"
 export WANDB_PROJECT=output_sft_accelerate_baichuan-7B-0622
