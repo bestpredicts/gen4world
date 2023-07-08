@@ -12,13 +12,15 @@ export NCCL_NET_PLUGIN=none
 
 OUTPUT=$1
 if [ "$OUTPUT" == "" ]; then
-    OUTPUT=/code2/output_sft_accelerate_baichuan-7B-0701
+    OUTPUT=/code2/output_sft_accelerate_baichuan-7B-0707
 fi
 mkdir -p $OUTPUT
 echo "output dir: $OUTPUT"
-export WANDB_PROJECT=output_sft_accelerate_baichuan-7B-0622
+export WANDB_PROJECT=belle_paper_add_wizard_ocra_belle13w_open_ocra0705
 PLM=/code/PLM/baichuan-7B
-DATA=/code/project/sft_data/sft_data/belle_paper_add_wizard_ocra_belle13w_open_ocra0701.jsonl 
+DATA=/code/project/sft_data/sft_data/belle_paper_add_wizard_ocra_belle13w_open_ocra0705.jsonl
+
+
 
 GRADIENT_ACCUMULATION_STEPS=8
 

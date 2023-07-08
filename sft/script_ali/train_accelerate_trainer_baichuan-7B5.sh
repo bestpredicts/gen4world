@@ -9,7 +9,6 @@ export NCCL_IB_TIMEOUT=22
 export NCCL_IB_QPS_PER_CONNECTION=8
 export NCCL_NET_PLUGIN=none
 
-
 OUTPUT=$1
 if [ "$OUTPUT" == "" ]; then
     OUTPUT=/code2/output_sft_accelerate_baichuan-7B-0707
@@ -22,9 +21,10 @@ DATA=/code/project/sft_data/sft_data/belle_paper_add_wizard_ocra_belle13w_open_o
 
 
 
+
 GRADIENT_ACCUMULATION_STEPS=8
 
-nohup accelerate  launch  --config_file=config/80g_new2/default_config2.yaml  \
+nohup accelerate  launch  --config_file=config/80g_new2/default_config4.yaml  \
 --mixed_precision="fp16" --zero_stage=3 --gradient_accumulation_steps=$GRADIENT_ACCUMULATION_STEPS --gradient_clipping=1.0 --offload_param_device="none" --offload_optimizer_device="none" --zero3_save_16bit_model="true" \
 train/train_sft_accelerate.py \
 --train_file=$DATA \
@@ -46,5 +46,5 @@ train/train_sft_accelerate.py \
 --checkpoints_total_limit=10 \
 --eval_step=10 \
 --wandb_project=$WANDB_PROJECT \
---gradient_checkpointing_enable >$OUTPUT/train3.log 2>&1 &
+--gradient_checkpointing_enable >$OUTPUT/train5.log 2>&1 &
 

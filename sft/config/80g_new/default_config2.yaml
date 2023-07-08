@@ -6,7 +6,7 @@ deepspeed_config:
 distributed_type: DEEPSPEED
 downcast_bf16: 'no'
 machine_rank: 2
-main_process_ip: 10.201.115.24
+main_process_ip: 10.232.64.5
 main_process_port: 8666
 main_training_function: main
 mixed_precision: bf16

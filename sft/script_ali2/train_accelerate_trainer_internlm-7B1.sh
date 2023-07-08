@@ -10,21 +10,23 @@ export NCCL_IB_QPS_PER_CONNECTION=8
 export NCCL_NET_PLUGIN=none
 
 
+
 OUTPUT=$1
 if [ "$OUTPUT" == "" ]; then
-    OUTPUT=/code2/output_sft_accelerate_baichuan-7B-0707
+    OUTPUT=/code2/output_sft_accelerate_internlm-7B-0708
 fi
 mkdir -p $OUTPUT
 echo "output dir: $OUTPUT"
 export WANDB_PROJECT=belle_paper_add_wizard_ocra_belle13w_open_ocra0705
-PLM=/code/PLM/baichuan-7B
+PLM=/code/PLM/internlm-7b
 DATA=/code/project/sft_data/sft_data/belle_paper_add_wizard_ocra_belle13w_open_ocra0705.jsonl
+
 
 
 
 GRADIENT_ACCUMULATION_STEPS=8
 
-nohup accelerate  launch  --config_file=config/80g_new2/default_config2.yaml  \
+nohup accelerate  launch  --config_file=config/80g_new/default_config0.yaml  \
 --mixed_precision="fp16" --zero_stage=3 --gradient_accumulation_steps=$GRADIENT_ACCUMULATION_STEPS --gradient_clipping=1.0 --offload_param_device="none" --offload_optimizer_device="none" --zero3_save_16bit_model="true" \
 train/train_sft_accelerate.py \
 --train_file=$DATA \
@@ -34,7 +36,7 @@ train/train_sft_accelerate.py \
 --seed=1234 \
 --output_dir=$OUTPUT \
 --max_length=4096 \
---num_train_epochs=5 \
+--num_train_epochs=3 \
 --learning_rate=7e-6 \
 --per_device_train_batch_size=2 \
 --per_device_eval_batch_size=2 \
@@ -46,5 +48,5 @@ train/train_sft_accelerate.py \
 --checkpoints_total_limit=10 \
 --eval_step=10 \
 --wandb_project=$WANDB_PROJECT \
---gradient_checkpointing_enable >$OUTPUT/train3.log 2>&1 &
+--gradient_checkpointing_enable >$OUTPUT/train.log 2>&1 &
 
