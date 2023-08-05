@@ -10,22 +10,23 @@ export NCCL_IB_QPS_PER_CONNECTION=8
 export NCCL_NET_PLUGIN=none
 
 
+
 OUTPUT=$1
 if [ "$OUTPUT" == "" ]; then
-    OUTPUT=/code2/output_sft_accelerate_baichuan-7B-0707
+    OUTPUT=moss7b_pretrain_ct
 fi
 mkdir -p $OUTPUT
 echo "output dir: $OUTPUT"
-export WANDB_PROJECT=belle_paper_add_wizard_ocra_belle13w_open_ocra0705
-PLM=/code/PLM/baichuan-7B
-DATA=/code/project/sft_data/sft_data/belle_paper_add_wizard_ocra_belle13w_open_ocra0705.jsonl
+export WANDB_PROJECT=moss7b_pretrain
+PLM=/data/dengyong/PLM/moss-base-7b
+DATA=/data/dengyong/pt_data/instruction_merge_set_pt.jsonl
 
 
 
 GRADIENT_ACCUMULATION_STEPS=8
 
-nohup accelerate  launch  --config_file=config/80g_new2/default_config0.yaml  \
---mixed_precision="fp16" --zero_stage=3 --gradient_accumulation_steps=$GRADIENT_ACCUMULATION_STEPS --gradient_clipping=1.0 --offload_param_device="none" --offload_optimizer_device="none" --zero3_save_16bit_model="true" \
+nohup accelerate  launch  --config_file=config/80g_new/default_config0.yaml  \
+--mixed_precision="bf16" --zero_stage=3 --gradient_accumulation_steps=$GRADIENT_ACCUMULATION_STEPS --gradient_clipping=1.0 --offload_param_device="none" --offload_optimizer_device="none" --zero3_save_16bit_model="true" \
 train/train_sft_accelerate.py \
 --train_file=$DATA \
 --model_name_or_path=$PLM \
@@ -33,18 +34,18 @@ train/train_sft_accelerate.py \
 --report_to wandb \
 --seed=1234 \
 --output_dir=$OUTPUT \
---max_length=4096 \
---num_train_epochs=5 \
---learning_rate=7e-6 \
---per_device_train_batch_size=2 \
---per_device_eval_batch_size=2 \
+--max_length=2048 \
+--num_train_epochs=1 \
+--learning_rate=1e-4 \
+--per_device_train_batch_size=4 \
+--per_device_eval_batch_size=4 \
 --gradient_accumulation_steps=$GRADIENT_ACCUMULATION_STEPS \
---checkpointing_steps=1000 \
+--checkpointing_steps=5000 \
 --lr_scheduler_type="cosine" \
 --warmup_ratio=0.01 \
 --weight_decay=0.00001 \
 --checkpoints_total_limit=10 \
---eval_step=10 \
+--log_step=10 \
 --wandb_project=$WANDB_PROJECT \
 --gradient_checkpointing_enable >$OUTPUT/train.log 2>&1 &
 

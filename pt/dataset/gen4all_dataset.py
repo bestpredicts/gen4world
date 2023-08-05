@@ -30,16 +30,6 @@ DEFAULT_EOS_TOKEN = "</s>"
 DEFAULT_BOS_TOKEN = "<s>"
 DEFAULT_UNK_TOKEN = "[UNK]"
 
-B_INST, E_INST = "[INST]", "[/INST]"
-B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
-DEFAULT_SYSTEM_PROMPT = """\
-You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.
-
-If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information."""
-
-
-
-
 class Pretrain_DatasetIter(IterableDataset):
     def __init__(self,
                  json_path,
@@ -123,7 +113,7 @@ class Pretrain_DatasetIter(IterableDataset):
 
 
 
-class GEN4ALLDatasetConv:
+class GEN4ALLDatasetPT:
     def __init__(self,
                  json_path,
                  tokenizer,
@@ -157,6 +147,7 @@ class GEN4ALLDatasetConv:
 
     def _load_data(self):
         all_data = []
+        remove_columns = ['id']
         with open(self.data_path, mode="r") as reader:
             for line in tqdm(reader):
                 try:
@@ -166,61 +157,26 @@ class GEN4ALLDatasetConv:
                 if type(data) != dict:
                     continue
                 id = data['id']
+                for c in remove_columns:
+                    del data[c]
                 all_data.append((id, data))
 
         return all_data
 
     def __getitem__(self, item):
-        sample_id = self.all_data[item][0]
 
-        sample_id,  data_point = self.all_data[item]
-        source = data_point['conversations']
-        source = data_point['conversations']
-
-        input_ids = []
-        labels = []
-        source = data_point["conversations"]
-
-        PROMPT_BEGIN: str = ''
-        PROMPT_USER: str = '\n\nHuman: {input} '
-        PROMPT_ASSISTANT: str = '\n\nAssistant: '  # should not have a space at the end
-        PROMPT_INPUT: str = PROMPT_BEGIN + PROMPT_USER + PROMPT_ASSISTANT
-
-        for idx,sentence in enumerate(source):
-            sentence_from = sentence["from"].lower()
-            # https://github.com/LianjiaTech/BELLE/issues/337
-            if sentence_from == 'system':
-                sentence_value = B_SYS+sentence['value']+E_SYS
-            else:
-                sentence_value = PROMPT_INPUT.format(input=sentence['value']) if sentence_from == 'human' else sentence["value"]
-
-            sentence_ids = self.tokenizer.encode(
-                sentence_value, add_special_tokens=False)  # do not add bos_token_id
-            label = copy.deepcopy(sentence_ids) if sentence_from not in ['human','system']  else [
-                IGNORE_INDEX] * len(sentence_ids)
-            input_ids += sentence_ids
-            labels += label
-            # add eos at every end of assistant sentence
-            if sentence_from != 'human':
-                # make sure eos_token_id is correct
-                input_ids += [self.tokenizer.eos_token_id]
-                labels += [self.tokenizer.eos_token_id]
-
+        id,data_point = self.all_data[item]
+        data_point = str(data_point)
+        input_ids = self.tokenizer.encode(
+                data_point, add_special_tokens=True)
         input_ids = input_ids[:self.max_length]
-        labels = labels[:self.max_length]
-        if not any(x > -100 for x in labels):
-            # labels can not have all values being -100. 18 and 24 are just random numbers
-            labels[18:24] = input_ids[18:24]
-
+        labels = copy.deepcopy( input_ids)
         attention_mask = [1] * len(input_ids)
 
-        input_ids = torch.LongTensor(input_ids)
-        labels = torch.LongTensor(labels)
-        labels = torch.tensor(labels, dtype=torch.long)
-        
         tokenized_full_prompt = {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
             "labels": labels
         }
         return tokenized_full_prompt
+
